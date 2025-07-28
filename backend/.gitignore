@@ -1,0 +1,26 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Node Modules
+node_modules/
+
+# Environment Variables
+.env
+
+# OS Specific Files
+.DS_Store
+
+# Editor Configs
+.vscode/
+.idea/
+
+# Build output (if any build step used)
+dist/
+build/
+
+# Others (optional)
+*.local
+*.suo
+*.sw?
