@@ -20,8 +20,8 @@ const generateInterviewQuestions = async (req, res) => {
     const prompt = questionAnswerPrompt(
       role,
       experience,
-      numberOfQuestions,
-      topicsToFocus
+      topicsToFocus,
+      numberOfQuestions
     );
 
     const response = await ai.models.generateContent({
