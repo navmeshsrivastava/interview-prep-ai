@@ -99,7 +99,6 @@ const InterviewPrep = () => {
         }
       );
 
-      // Should be array like [{question, answer}, ...]
       const generatedQuestions = aiResponse.data;
 
       const response = await axiosInstance.post(

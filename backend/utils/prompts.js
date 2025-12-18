@@ -2,7 +2,8 @@ const questionAnswerPrompt = (
   role,
   experience,
   topicsToFocus,
-  numberOfQuestions
+  numberOfQuestions,
+  description
 ) =>
   `
     You are an AI trained to generate technical interview questions and answers.
@@ -11,6 +12,11 @@ const questionAnswerPrompt = (
     - Role: ${role}
     - Candidate Experience: ${experience} years
     - Focus Topics: ${topicsToFocus}
+    ${
+      description
+        ? `- Additional Context from the candidate: ${description}`
+        : ''
+    }
     - Write ${numberOfQuestions} interview questions.
     - For each question, generate a detailed but beginner-friendly answer.
     - If the answer needs a code example, add a small code inside.

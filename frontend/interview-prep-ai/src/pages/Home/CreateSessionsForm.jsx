@@ -28,9 +28,9 @@ const CreateSessionsForm = () => {
   const handleCreateSession = async (e) => {
     e.preventDefault();
 
-    const { role, experience, topicsToFocus } = formData;
+    const { role, experience, topicsToFocus, description } = formData;
 
-    if (!role || !experience || !topicsToFocus) {
+    if (!role || !experience || !topicsToFocus || !description) {
       setError('Please fill all the required fields.');
       return;
     }
@@ -42,10 +42,9 @@ const CreateSessionsForm = () => {
       // Call AI API to generate questions
       const aiResponse = await axiosInstance.post(
         API_PATHS.AI.GENERATE_QUESTIONS,
-        { role, experience, topicsToFocus, numberOfQuestions: 10 }
+        { role, experience, topicsToFocus, numberOfQuestions: 10, description }
       );
 
-      // Should be array like [{question, answer}, ...]
       const generatedQuestions = aiResponse.data;
 
       const response = await axiosInstance.post(API_PATHS.SESSION.CREATE, {

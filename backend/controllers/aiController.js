@@ -1,31 +1,26 @@
-const fetch = require('node-fetch');
+const Groq = require('groq-sdk');
 const {
   conceptExplainPrompt,
   questionAnswerPrompt,
 } = require('../utils/prompts');
 
-// Helper function to call ApiFreeLLM
-async function generateFromFreeAI(prompt) {
-  const response = await fetch('https://apifreellm.com/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: prompt }),
-  });
-  const data = await response.json();
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-  if (!data || !data.response) throw new Error('AI response is empty');
-
-  return data.response;
-}
-
-// @desc Generate interview questions and answers
-// @route POST /api/ai/generate-questions
-// @access Private
+// Generate Interview Questions
 const generateInterviewQuestions = async (req, res) => {
   try {
-    const { role, experience, topicsToFocus, numberOfQuestions } = req.body;
+    const { role, experience, topicsToFocus, numberOfQuestions, description } =
+      req.body;
 
-    if (!role || !experience || !topicsToFocus || !numberOfQuestions) {
+    if (
+      !role ||
+      !experience ||
+      !topicsToFocus ||
+      !numberOfQuestions ||
+      !description
+    ) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -33,33 +28,51 @@ const generateInterviewQuestions = async (req, res) => {
       role,
       experience,
       topicsToFocus,
-      numberOfQuestions
+      numberOfQuestions,
+      description
     );
 
-    const rawText = await generateFromFreeAI(prompt);
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+    });
 
-    let data;
+    const rawText = response.choices[0]?.message?.content;
+
+    if (!rawText) {
+      throw new Error('AI response is empty');
+    }
+
+    let questions;
+
     try {
-      const cleanedText = rawText
+      const cleaned = rawText
         .replace(/^```json\s*/, '')
         .replace(/```$/, '')
         .trim();
-      data = JSON.parse(cleanedText);
+
+      questions = JSON.parse(cleaned);
+
+      if (!Array.isArray(questions)) {
+        throw new Error('AI did not return an array');
+      }
     } catch (err) {
-      data = { raw: rawText };
+      return res.status(500).json({
+        message: 'AI returned invalid JSON format',
+      });
     }
 
-    res.status(200).json(data);
+    res.status(200).json(questions);
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: 'Failed to generate questions', error: error.message });
+    res.status(500).json({
+      message: 'Failed to generate questions',
+      error: error.message,
+    });
   }
 };
 
-// @desc Generate explanation for a question
-// @route POST /api/ai/generate-explanation
-// @access Private
+// Generate Concept Explanation
 const generateConceptExplanation = async (req, res) => {
   try {
     const { question } = req.body;
@@ -69,17 +82,24 @@ const generateConceptExplanation = async (req, res) => {
     }
 
     const prompt = conceptExplainPrompt(question);
-    const rawText = await generateFromFreeAI(prompt);
+
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+    });
+
+    const rawText = response.choices[0]?.message?.content;
 
     if (!rawText) {
-      return res.status(200).json({ title: '', explanation: '', raw: '' });
+      throw new Error('AI response is empty');
     }
 
     let data;
     try {
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       data = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: rawText };
-    } catch (err) {
+    } catch {
       data = { raw: rawText };
     }
 
@@ -92,4 +112,7 @@ const generateConceptExplanation = async (req, res) => {
   }
 };
 
-module.exports = { generateInterviewQuestions, generateConceptExplanation };
+module.exports = {
+  generateInterviewQuestions,
+  generateConceptExplanation,
+};
