@@ -14,13 +14,7 @@ const generateInterviewQuestions = async (req, res) => {
     const { role, experience, topicsToFocus, numberOfQuestions, description } =
       req.body;
 
-    if (
-      !role ||
-      !experience ||
-      !topicsToFocus ||
-      !numberOfQuestions ||
-      !description
-    ) {
+    if (!role || !experience || !topicsToFocus || !numberOfQuestions) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -34,39 +28,33 @@ const generateInterviewQuestions = async (req, res) => {
 
     const response = await groq.chat.completions.create({
       model: 'llama-3.1-8b-instant',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a JSON-only API. Return ONLY a valid JSON array. No markdown, no text, no explanations.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
     });
 
-    const rawText = response.choices[0]?.message?.content;
+    const rawText = response.choices[0]?.message?.content.trim();
 
     if (!rawText) {
       throw new Error('AI response is empty');
     }
 
-    let questions;
+    const questions = JSON.parse(rawText);
 
-    try {
-      const cleaned = rawText
-        .replace(/^```json\s*/, '')
-        .replace(/```$/, '')
-        .trim();
-
-      questions = JSON.parse(cleaned);
-
-      if (!Array.isArray(questions)) {
-        throw new Error('AI did not return an array');
-      }
-    } catch (err) {
-      return res.status(500).json({
-        message: 'AI returned invalid JSON format',
-      });
+    if (!Array.isArray(questions)) {
+      throw new Error('AI did not return an array');
     }
 
     res.status(200).json(questions);
   } catch (error) {
     res.status(500).json({
-      message: 'Failed to generate questions',
+      message: 'AI returned invalid JSON format',
       error: error.message,
     });
   }
@@ -76,33 +64,38 @@ const generateInterviewQuestions = async (req, res) => {
 const generateConceptExplanation = async (req, res) => {
   try {
     const { question } = req.body;
-
     if (!question) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-
     const prompt = conceptExplainPrompt(question);
-
     const response = await groq.chat.completions.create({
       model: 'llama-3.1-8b-instant',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a JSON-only API. You must return ONLY valid JSON. No markdown, no text, no code fences.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
     });
-
-    const rawText = response.choices[0]?.message?.content;
-
+    const rawText = response.choices[0]?.message?.content?.trim();
     if (!rawText) {
       throw new Error('AI response is empty');
     }
-
     let data;
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      data = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: rawText };
-    } catch {
-      data = { raw: rawText };
+      data = JSON.parse(rawText);
+    } catch (err) {
+      console.error('Invalid JSON from AI:', rawText);
+      return res.status(500).json({ message: 'AI returned invalid JSON..' });
     }
-
+    if (!data.title || !data.explanation) {
+      return res
+        .status(500)
+        .json({ message: 'AI response missing required fields' });
+    }
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({
